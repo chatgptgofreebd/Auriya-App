@@ -18,9 +18,10 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
 
-    - name: Auto-Fix Manifest (Internet Permission)
+    - name: Auto-Fix Manifest (Internet Permission) & Model Name
       working-directory: ./project_folder
       run: |
+        # ১. ইন্টারনেট পারমিশন যোগ করা
         MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | grep "src/main" | head -n 1)
         if [ -n "$MANIFEST_PATH" ]; then
           if ! grep -q "android.permission.INTERNET" "$MANIFEST_PATH"; then
@@ -28,10 +29,12 @@ jobs:
             sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <application/' "$MANIFEST_PATH"
           fi
         fi
+        
+        # ২. ভুল মডেলের নাম ঠিক করা (gemini-2.5 থেকে 1.5)
+        find . -name "*.kt" -exec sed -i 's/gemini-2.5-flash/gemini-1.5-flash/g' {} +
+        find . -name "*.kt" -exec sed -i 's/gemini-2.5-pro/gemini-1.5-pro/g' {} +
 
-    - name: Auto-Fix Firebase (Dummy File)
-      working-directory: ./project_folder
-      run: |
+        # ৩. ডামি ফায়ারবেস ফাইল (বিল্ড ফেইল ঠেকানোর জন্য)
         APP_DIR=$(find . -name "build.gradle.kts" -o -name "build.gradle" | grep -i "app" | head -n 1 | xargs dirname)
         if [ -z "$APP_DIR" ]; then APP_DIR="./app"; fi
         PACKAGE_NAME=$(grep -r "applicationId" $APP_DIR | head -n 1 | awk -F'"' '{print $2}')
