@@ -18,15 +18,14 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
 
-    - name: Auto-Fix Firebase Issues
+    - name: Auto-Fix Firebase and Manifest
       working-directory: ./project_folder
       run: |
+        # ১. ফায়ারবেস এরর ফিক্স
         APP_DIR=$(find . -name "build.gradle.kts" -o -name "build.gradle" | grep -i "app" | head -n 1 | xargs dirname)
         if [ -z "$APP_DIR" ]; then APP_DIR="./app"; fi
-        
         PACKAGE_NAME=$(grep -r "applicationId" $APP_DIR | head -n 1 | awk -F'"' '{print $2}')
         if [ -z "$PACKAGE_NAME" ]; then PACKAGE_NAME="com.example.app"; fi
-        
         cat <<EOF > $APP_DIR/google-services.json
         {
           "project_info": { "project_number": "123456789", "project_id": "dummy-project" },
@@ -34,6 +33,15 @@ jobs:
           "configuration_version": "1"
         }
         EOF
+
+        # ২. ইন্টারনেট পারমিশন অটো-ফিক্স
+        MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | grep "src/main" | head -n 1)
+        if [ -n "$MANIFEST_PATH" ]; then
+          if ! grep -q "android.permission.INTERNET" "$MANIFEST_PATH"; then
+            echo "Adding INTERNET permission..."
+            sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <application/' "$MANIFEST_PATH"
+          fi
+        fi
 
     - name: Generate Debug Keystore
       working-directory: ./project_folder
