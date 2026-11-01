@@ -18,21 +18,22 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
 
-    - name: Auto-Fix Manifest (Internet Permission) & Model Name
+    - name: Force Fix Manifest and Model Name
       working-directory: ./project_folder
       run: |
-        # ১. ইন্টারনেট পারমিশন যোগ করা
+        # ১. ইন্টারনেট পারমিশন জোরপূর্বক যুক্ত করা
         MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | grep "src/main" | head -n 1)
         if [ -n "$MANIFEST_PATH" ]; then
           if ! grep -q "android.permission.INTERNET" "$MANIFEST_PATH"; then
             echo "Adding INTERNET permission..."
-            sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <application/' "$MANIFEST_PATH"
+            sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" \/>' "$MANIFEST_PATH"
           fi
         fi
         
-        # ২. ভুল মডেলের নাম ঠিক করা (gemini-2.5 থেকে 1.5)
+        # ২. ভুল মডেলের নাম (2.5) পরিবর্তন করে সঠিক নাম (1.5) করা
         find . -name "*.kt" -exec sed -i 's/gemini-2.5-flash/gemini-1.5-flash/g' {} +
         find . -name "*.kt" -exec sed -i 's/gemini-2.5-pro/gemini-1.5-pro/g' {} +
+        find . -name "*.kt" -exec sed -i 's/gemini-1.5-flash-latest/gemini-1.5-flash/g' {} +
 
         # ৩. ডামি ফায়ারবেস ফাইল (বিল্ড ফেইল ঠেকানোর জন্য)
         APP_DIR=$(find . -name "build.gradle.kts" -o -name "build.gradle" | grep -i "app" | head -n 1 | xargs dirname)
