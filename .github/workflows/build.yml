@@ -5,38 +5,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Unzip Project
       run: unzip project.zip -d ./project_folder
-    
-    - name: Find Gradlew Path
-      id: find-gradle
-      run: |
-        GRADLEW_PATH=$(find ./project_folder -name gradlew -type f | head -n 1)
-        if [ -z "$GRADLEW_PATH" ]; then
-          echo "gradlew not found!"
-          exit 1
-        fi
-        echo "Found gradlew at: $GRADLEW_PATH"
-        DIR_PATH=$(dirname "$GRADLEW_PATH")
-        echo "PROJECT_DIR=$DIR_PATH" >> $GITHUB_ENV
-    
+
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
-    
-    - name: Grant Permission
-      working-directory: ${{ env.PROJECT_DIR }}
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+
+    - name: Generate Gradle Wrapper
+      working-directory: ./project_folder
+      run: gradle wrapper
+
+    - name: Grant execute permission for gradlew
+      working-directory: ./project_folder
       run: chmod +x gradlew
-    
-    - name: Build APK
-      working-directory: ${{ env.PROJECT_DIR }}
+
+    - name: Build with Gradle
+      working-directory: ./project_folder
       run: ./gradlew assembleDebug
-    
+
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+        path: project_folder/app/build/outputs/apk/debug/app-debug.apk
