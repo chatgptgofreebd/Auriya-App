@@ -1,0 +1,59 @@
+name: Build APK
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Unzip Project
+      run: unzip project.zip -d ./project_folder
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+
+    - name: Deep Code Fix (Manifest & Model Name)
+      working-directory: ./project_folder
+      run: |
+        # ১. ইন্টারনেট পারমিশন
+        MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | grep "src/main" | head -n 1)
+        if [ -n "$MANIFEST_PATH" ]; then
+          sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <application/' "$MANIFEST_PATH"
+        fi
+        
+        # ২. মডেলের নাম আপডেট (আপনার লিস্ট অনুযায়ী সঠিক নাম দেওয়া হলো)
+        find . -name "*.kt" -exec sed -i 's/gemini-1.5-flash/gemini-2.5-flash/g' {} +
+        find . -name "*.kt" -exec sed -i 's/gemini-1.5-pro/gemini-2.5-pro/g' {} +
+        
+        # ৩. ডামি ফায়ারবেস
+        APP_DIR=$(find . -name "build.gradle.kts" -o -name "build.gradle" | grep -i "app" | head -n 1 | xargs dirname)
+        if [ -z "$APP_DIR" ]; then APP_DIR="./app"; fi
+        PACKAGE_NAME=$(grep -r "applicationId" $APP_DIR | head -n 1 | awk -F'"' '{print $2}')
+        if [ -z "$PACKAGE_NAME" ]; then PACKAGE_NAME="com.example.app"; fi
+        cat <<EOF > $APP_DIR/google-services.json
+        {"project_info":{"project_number":"123","project_id":"dummy"},"client":[{"client_info":{"mobilesdk_app_id":"1:123:android:123","android_client_info":{"package_name":"$PACKAGE_NAME"}},"api_key":[{"current_key":"dummy"}]}]}
+        EOF
+
+    - name: Generate Debug Keystore
+      working-directory: ./project_folder
+      run: keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
+    - name: Generate Gradle Wrapper
+      working-directory: ./project_folder
+      run: gradle wrapper
+
+    - name: Build with Gradle
+      working-directory: ./project_folder
+      run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug
+        path: project_folder/**/build/outputs/apk/debug/app-debug.apk
