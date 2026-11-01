@@ -18,6 +18,31 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
 
+    - name: Auto-Fix Firebase and KSP Issues
+      working-directory: ./project_folder
+      run: |
+        # ১. ফায়ারবেস এরর ফিক্স (ডামি google-services.json তৈরি করা)
+        APP_DIR=$(find . -name "build.gradle.kts" -o -name "build.gradle" | grep -i "app" | head -n 1 | xargs dirname)
+        if [ -z "$APP_DIR" ]; then APP_DIR="./app"; fi
+        
+        PACKAGE_NAME=$(grep -r "applicationId" $APP_DIR | head -n 1 | awk -F'"' '{print $2}')
+        if [ -z "$PACKAGE_NAME" ]; then PACKAGE_NAME="com.example.app"; fi
+        
+        cat <<EOF > $APP_DIR/google-services.json
+        {
+          "project_info": { "project_number": "123456789", "project_id": "dummy-project" },
+          "client": [ { "client_info": { "mobilesdk_app_id": "1:123456789:android:123456789", "android_client_info": { "package_name": "$PACKAGE_NAME" } }, "oauth_client": [], "api_key": [ { "current_key": "dummy_key" } ] } ],
+          "configuration_version": "1"
+        }
+        EOF
+
+        # ২. KSP এরর ফিক্স (gradle.properties আপডেট করা)
+        echo "org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8" >> gradle.properties
+        echo "org.gradle.parallel=false" >> gradle.properties
+        echo "ksp.useKSP2=false" >> gradle.properties
+        echo "ksp.incremental=false" >> gradle.properties
+        echo "android.useAndroidX=true" >> gradle.properties
+
     - name: Generate Gradle Wrapper
       working-directory: ./project_folder
       run: gradle wrapper
@@ -28,10 +53,10 @@ jobs:
 
     - name: Build with Gradle
       working-directory: ./project_folder
-      run: ./gradlew assembleDebug
+      run: ./gradlew assembleDebug --no-daemon
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: project_folder/app/build/outputs/apk/debug/app-debug.apk
+        path: project_folder/**/build/outputs/apk/debug/app-debug.apk
